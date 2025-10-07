@@ -1,58 +1,75 @@
-﻿// Индустриальная разработка.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
-// Реализация: читаем последовательность кодов букв, находим минимальный префикс, содержащий все 26 букв.
-
 #include <iostream>
-#include <set>
+#include <vector>
 #include <string>
-#include <algorithm>
+#include <sstream>
+#include <cctype>
 
 using namespace std;
 
-// Функция f(n): переворачивает строку и убирает лидирующие нули
-string f(const string& n) {
-    string s = n;
-    reverse(s.begin(), s.end());
-    // Удаляем лидирующие нули
-    size_t first_nonzero = s.find_first_not_of('0');
-    if (first_nonzero == string::npos) return "0";
-    return s.substr(first_nonzero);
+vector<vector<int>> parse_triangle(const string& input) {
+    vector<vector<int>> triangle;
+    size_t pos = input.find('[');
+    if (pos == string::npos) return triangle;
+    
+    string s = input.substr(pos);
+    vector<int> current_row;
+    int num = 0;
+    bool in_number = false;
+    bool negative = false;
+    for (size_t i = 0; i < s.size(); ++i) {
+        char c = s[i];
+        if (c == '-') {
+            negative = true;
+        } else if (isdigit(c)) {
+            if (!in_number) {
+                num = 0;
+                in_number = true;
+            }
+            num = num * 10 + (c - '0');
+        } else {
+            if (in_number) {
+                current_row.push_back(negative ? -num : num);
+                in_number = false;
+                negative = false;
+            }
+            if (c == ']') {
+                if (!current_row.empty()) {
+                    triangle.push_back(current_row);
+                    current_row.clear();
+                }
+            }
+        }   
+    }
+    return triangle;
 }
-
-// Функция g(n) = f(f(n)) / n
-// Для чисел n < 10^30, но мы не можем перебрать все, поэтому рассуждаем:
-// f(f(n)) = n без лидирующих нулей (т.е. если n не оканчивается на 0, то f(f(n)) = n)
-// Если n оканчивается на k нулей, то f(n) начинается с k нулей, после второго применения f эти нули исчезают.
-// Значит, g(n) = n' / n, где n' — n без всех замыкающих нулей.
-
-// Для любого n, g(n) = n' / n, где n' — n без всех замыкающих нулей.
-// Например, n = 1200, n' = 12, g(n) = 12/1200 = 1/100
-
-// Количество различных g(n) — это количество различных дробей вида n' / n для 1 < n < 10^30
-
-// Но дробь n' / n = 1 / 10^k, где k — количество замыкающих нулей у n.
-// Для любого n без замыкающих нулей: g(n) = 1
-// Для n с k замыкающими нулями: g(n) = 1 / 10^k
 
 int main() {
-    // Максимальное количество замыкающих нулей у числа < 10^30 — это 28 (например, 100...0, 29 знаков)
-    // n = x * 10^k, где x не оканчивается на 0, 1 < n < 10^30
-    // k = 0..28 (т.к. 10^29 = 1 и 29 нулей — это 30 знаков, но 1 < n < 10^30)
-
-    set<string> results;
-    results.insert("1"); // g(n) = 1 для всех n без замыкающих нулей
-
-    for (int k = 1; k < 30; ++k) {
-        // g(n) = 1 / 10^k
-        string denom = "1";
-        for (int i = 0; i < k; ++i) denom += "0";
-        results.insert("1/" + denom);
+    string input, line;
+    int open_br = 0, close_br = 0;
+    bool seen_bracket = false;
+    while (getline(cin, line)) {
+        if (!seen_bracket && line.find_first_not_of(" \t\r\n") == string::npos) continue;
+        for (char c : line) {
+            if (c == '[') { ++open_br; seen_bracket = true; }
+            else if (c == ']') ++close_br;
+        }
+        input += line;
+        if (seen_bracket && open_br > 0 && open_br == close_br) break;
     }
 
-    cout << results.size() << endl; // 30 различных значений
-    // Для интереса можно вывести сами значения:
-    // for (const auto& v : results) cout << v << endl;
+    vector<vector<int>> triangle = parse_triangle(input);
+    int n = static_cast<int>(triangle.size());
+    if (n == 0) {
+        cout << 0 << endl;
+        return 0;
+    }
 
+    vector<int> dp = triangle.back();
+    for (int row = n - 2; row >= 0; --row) {
+        for (int j = 0; j <= row; ++j) {
+            dp[j] = triangle[row][j] + min(dp[j], dp[j + 1]);
+        }
+    }
+    cout << dp[0] << endl;
     return 0;
 }
-
-
